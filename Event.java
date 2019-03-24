@@ -3,6 +3,7 @@ public class Event {
   private double patience;
   private double arrivalTime;
   private double serviceTime;
+  private double waitingTime;
   private int index;
 
   public Event() {};
@@ -11,6 +12,7 @@ public class Event {
     this.patience = patience;
     this.arrivalTime = arrivalTime;
     this.serviceTime = serviceTime;
+    this.waitingTime = 0;
     this.index = index;
   };
 
@@ -24,6 +26,10 @@ public class Event {
 
   public void setServiceTime(double serviceTime){
     this.serviceTime = serviceTime;
+  }
+
+  public void setWaitingTime(double waitingTime){
+    this.waitingTime = waitingTime;
   }
 
   public void setIndex(int index){
@@ -40,6 +46,10 @@ public class Event {
 
   public double getServiceTime(){
     return this.serviceTime;
+  }
+
+  public double getWaitingTime(){
+    return this.waitingTime;
   }
 
   public int getIndex(){

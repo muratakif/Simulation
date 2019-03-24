@@ -5,13 +5,16 @@ import java.util.Random;
 
 public class Simulation {
 
-  private static double clock, utilization_time, total_renaged, total_wait_time, total_util;
-  private int total_call;
+  private static double clock, utilizationTime, totalRenaged, totalWaitTime, totalUtil, nextDepartureTime;
+  private int totalCall, index, j;
+  private static ArrayList<Event> eventList;
+  private static Event currentEvent;
+  private static Queue<Event> eventQueue;
 
   public Simulation() {};
 
-  public Simulation(int total_call) {
-    this.total_call = total_call;
+  public Simulation(int totalCall) {
+    this.totalCall = totalCall;
   };
 
   public void run() {
@@ -20,19 +23,18 @@ public class Simulation {
   }
 
   public void run(int seed) {
-    ArrayList<Event> eventList = prepareSim(seed, this.total_call);
-    runSim(eventList, this.total_call);
-    printResultSummary(this.total_call);
+    prepareSim(seed);
+    runSim();
+    printResultSummary(this.totalCall);
   }
 
-  private static ArrayList<Event> prepareSim(int seed, int total_call){
-    ArrayList<Event> eventList = new ArrayList<Event>();
+  private void prepareSim(int seed){
+    eventList = new ArrayList<Event>();
+    eventQueue = new LinkedList<Event>();
     Random rng  = new Random(seed);
 
-    for(int i = 1; i <= total_call; ++i)
+    for(int i = 1; i <= totalCall; ++i)
       eventList.add(createRandomEvent(rng, i));
-
-    return eventList;
   }
 
   private static Event createRandomEvent(Random rng, int index) {
@@ -43,61 +45,79 @@ public class Simulation {
     return new Event(patience, clock, service, index);
   }
 
-  private static void runSim(ArrayList<Event> eventList, int total_call){
-    Queue<Event> eventQueue = new LinkedList<Event>();
+  private void runSim(){
+    while(index < totalCall){
+      if(eventQueue.isEmpty())
+        processReadyEvent();
 
-    double departure = 0, waiting_time = 0;
-    int index = 0, j = 0;
+      while(!eventQueue.isEmpty())
+        processPendingEvent();
 
-    while(index < total_call){
-      //Process the new arrival
-      if(eventQueue.isEmpty()){
-        clock = eventList.get(index).getArrivalTime();
-        //Update the departure clock
-        departure = eventList.get(index).getArrivalTime() + eventList.get(index).getServiceTime();
-        j = index + 1;
-        waiting_time = 0;
-        total_util += eventList.get(index).getServiceTime();
-
-        //Fill the Queue according to the new departure clock
-        while(j < total_call && eventList.get(j).getArrivalTime() < departure)
-          eventQueue.add(eventList.get(j++));
-      }
-
-      //Process the calls in the Queue till the Queue is empty
-      while(!eventQueue.isEmpty()){
-        //Process the first call in the Queue
-        clock = departure;
-        waiting_time = clock - eventQueue.peek().getArrivalTime();
-
-        if(eventQueue.peek().getPatience() < waiting_time){
-          waiting_time = eventQueue.peek().getPatience();
-          total_wait_time += waiting_time;
-          total_renaged++;
-        }
-        else{
-          departure = clock + eventQueue.peek().getServiceTime();   //Update the departure clock
-          total_wait_time += waiting_time;
-          total_util += eventQueue.peek().getServiceTime();
-
-          //Fill the Queue according to the new departure clock
-          while(j < total_call && eventList.get(j).getArrivalTime() < departure)
-            eventQueue.add(eventList.get(j++));
-        }
-        eventQueue.remove();
-      }
-
-      index = j; //Update the index
+      index = j;
     }
+  }
+
+  private void processReadyEvent() {
+    currentEvent = eventList.get(index);
+    j = index + 1;
+    clock = currentEvent.getArrivalTime();
+    updateNextDepartureTime();
+    updateStatistics();
+    fillEventQueue();
+  }
+
+  private void processPendingEvent() {
+    clock = nextDepartureTime;
+    currentEvent = eventQueue.peek();
+    if(hasCurrentEventRenaged())
+      currentEvent.setWaitingTime(currentEvent.getPatience());
+    else {
+      updateNextDepartureTime();
+      currentEvent.setWaitingTime(clock - currentEvent.getArrivalTime());
+      fillEventQueue();
+    }
+    updateStatistics();
+    eventQueue.remove();
+  }
+
+  private void updateStatistics() {
+    totalWaitTime += currentEvent.getWaitingTime();
+
+    if(hasCurrentEventRenaged())
+      ++totalRenaged; // No need to update totalUtil
+    else
+      totalUtil += currentEvent.getServiceTime();
+  }
+
+  private void fillEventQueue() {
+    while(j < totalCall && eventList.get(j).getArrivalTime() < nextDepartureTime)
+      eventQueue.add(eventList.get(j++));
+  }
+
+  private boolean hasCurrentEventRenaged() {
+    double scheduledWaitTime = clock - currentEvent.getArrivalTime();
+    return currentEvent.getPatience() < scheduledWaitTime;
+  }
+
+  private void updateNextDepartureTime() {
+    nextDepartureTime = calculateDepartureTime();
+  }
+
+  private static double calculateDepartureTime() {
+    if(eventQueue.isEmpty())
+      return currentEvent.getArrivalTime() + currentEvent.getServiceTime();
+    else
+      return clock + currentEvent.getServiceTime();
   }
 
   private static void processSingleEvent() {
 
   }
 
-  private static void printResultSummary(int total_call){
-    System.out.println("Total Utilization: "  + total_util / clock +
-                       " Total Renaged: "     + total_renaged +
-                       " Average Waiting: "   + total_wait_time / total_call);
+  // TODO: Trasport to a helper class
+  private static void printResultSummary(int totalCall){
+    System.out.println("Total Utilization: "  + totalUtil / clock +
+                       " Total Renaged: "     + totalRenaged +
+                       " Average Waiting: "   + totalWaitTime / totalCall);
   }
 }
